@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pembelajaran QGIS - Peta Interaktif Jakarta</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #eef2ff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #0e1a5e 0%, #1e3a8a 100%);
+            border-radius: 16px 16px 0 0;
+            padding: 20px 30px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        .header p {
+            color: #c7d2fe;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        /* Dua kolom */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 0;
+            background: white;
+            border-radius: 0 0 16px 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .map-section {
+            background: #f8fafc;
+        }
+
+        #map {
+            height: 550px;
+            width: 100%;
+            background: #e2e8f0;
+        }
+
+        /* Panel Info */
+        .info-panel {
+            background: #f8fafc;
+            padding: 20px;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 650px;
+            overflow-y: auto;
+        }
+
+        /* Kartu Hasil */
+        .result-card {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .result-card h3 {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .distance-box {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .time-box {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        /* UPDATE: Kecepatan slider - FITUR BARU */
+        .speed-control {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .speed-control label {
+            font-size: 11px;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .speed-control input {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .speed-value {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .status {
+            font-size: 12px;
+            margin-top: 10px;
+            opacity: 0.85;
+        }
+
+        /* Kartu Titik */
+        .points-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .points-card h3 {
+            color: #1e293b;
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .point-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+        }
+
+        .point-item.start {
+            border-left-color: #3b82f6;
+        }
+
+        .point-item.end {
+            border-left-color: #ef4444;
+        }
+
+        .point-label {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .point-label.start { color: #3b82f6; }
+        .point-label.end { color: #ef4444; }
+
+        .point-coord {
+            font-size: 11px;
+            color: #64748b;
+            font-family: monospace;
+        }
+
+        .empty-point {
+            color: #94a3b8;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        /* UPDATE: Kartu pilihan layer - FITUR BARU */
+        .layer-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .layer-card h3 {
+            color: #1e293b;
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+        }
+
+        .layer-item:last-child {
+            border-bottom: none;
+        }
+
+        .layer-item:hover {
+            background: #f1f5f9;
+        }
+
+        .layer-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .layer-name {
+            font-size: 13px;
+            color: #334155;
+            flex: 1;
+        }
+
+        .layer-check {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        /* Tombol */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        /* UPDATE: Tombol screenshot - FITUR BARU */
+        .btn-success {
+            background: #f5bb00;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #e0c600;
+        }
+
+        /* Footer */
+        .footer-note {
+            background: #eef2ff;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 11px;
+            color: #1e40af;
+            text-align: center;
+            margin-top: auto;
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            .info-panel {
+                border-left: none;
+                border-top: 1px solid #e2e8f0;
+            }
+            #map { height: 400px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>QGIS Learning - Peta Interaktif Jakarta</h1>
+        <p>Praktik pemetaan digital: menentukan titik, menghitung jarak, estimasi waktu</p>
+    </div>
+    
+    <div class="main-content">
+        <div class="map-section">
+            <div id="map"></div>
+        </div>
+        
+        <div class="info-panel">
+            <div class="result-card" id="resultCard">
+                <h3>HASIL PERHITUNGAN</h3>
+                <div id="resultContent">
+                    <div class="status">Klik dua titik pada peta</div>
+                </div>
+                <!-- UPDATE: Kontrol kecepatan - FITUR BARU -->
+                <div class="speed-control">
+                    <label>Kecepatan rata-rata (km/jam):</label>
+                    <input type="range" id="speedSlider" min="10" max="80" value="30" step="5">
+                    <div class="speed-value" id="speedValue">30 km/jam (kecepatan dalam kota)</div>
+                </div>
+            </div>
+            
+            <div class="points-card">
+                <h3>TITIK YANG DIPILIH</h3>
+                <div id="pointsList">
+                    <div class="empty-point">Belum ada titik. Klik peta untuk mulai</div>
+                </div>
+            </div>
+            
+            <!-- UPDATE: Kartu pilihan layer peta - FITUR BARU -->
+            <div class="layer-card">
+                <h3>PILIH LAYAR PETA</h3>
+                <div id="layerList"></div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-secondary" id="resetBtn">Hapus Semua</button>
+                <button class="btn btn-primary" id="exampleBtn">Contoh Titik</button>
+                <button class="btn btn-success" id="screenshotBtn">Export</button>
+            </div>
+            
+            <!-- UPDATE: Info koordinat kursor - FITUR BARU -->
+            <div class="footer-note">
+                <strong>Tips:</strong> Marker bisa digeser (klik dan tahan)<br>
+                <strong>Koordinat kursor:</strong> <span id="cursorCoords">-</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // PEMETAAN INTERAKTIF JAKARTA
+    // Untuk pembelajaran QGIS
+    // ============================================================
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // -------------------- SETUP PETA --------------------
+        var defaultCenter = [-6.1754, 106.8272];  // Monas, Jakarta
+        var map = L.map('map').setView(defaultCenter, 13);
+        
+        /* UPDATE: Layer peta tambahan (OpenStreetMap, Satelit, Dark, Terrain) - FITUR BARU */
+        var baseMaps = {
+            'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: 'OpenStreetMap contributors'
+            }),
+            'Satelit': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: 'Google',
+                maxZoom: 20
+            }),
+            'Gelap': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: 'CartoDB',
+                maxZoom: 19
+            }),
+
+        };
+        
+        var activeLayer = baseMaps['OpenStreetMap'];
+        activeLayer.addTo(map);
+        
+        // Kontrol layer peta
+        L.control.layers(baseMaps).addTo(map);
+        L.control.scale({ metric: true, imperial: false }).addTo(map);
+        
+        // -------------------- VARIABEL GLOBAL --------------------
+        var markers = [];
+        var waypoints = [];
+        var currentRoute = null;
+        var currentSpeed = 30;  // km/jam default
+        
+        // -------------------- FUNGSI PERHITUNGAN --------------------
+        
+        // Rumus Haversine untuk jarak garis lurus
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            var R = 6371;  // Radius bumi dalam km
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLon = (lon2 - lon1) * Math.PI / 180;
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        // Format jarak (meter/km)
+        function formatDistance(km) {
+            if (km < 1) return (km * 1000).toFixed(0) + ' meter';
+            return km.toFixed(1) + ' km';
+        }
+        
+        /* UPDATE: Format waktu dengan kecepatan dinamis - FITUR BARU */
+        function formatTimeWithSpeed(km, speed) {
+            var menit = Math.round(km / speed * 60);
+            if (menit < 60) return menit + ' menit';
+            var jam = Math.floor(menit / 60);
+            var sisa = menit % 60;
+            if (sisa > 0) return jam + ' jam ' + sisa + ' menit';
+            return jam + ' jam';
+        }
+        
+        function formatTime(km) {
+            return formatTimeWithSpeed(km, currentSpeed);
+        }
+        
+        /* UPDATE: Rekomendasi transportasi berdasarkan jarak - FITUR BARU */
+        function getTransportSuggestion(distanceKm) {
+            if (distanceKm < 2) return 'Jalan kaki';
+            if (distanceKm < 8) return 'Sepeda';
+            if (distanceKm < 20) return 'Motor';
+            if (distanceKm < 50) return 'Mobil';
+            return 'Transportasi umum';
+        }
+        
+        // Ambil rute dari API OSRM
+        async function getRoute(start, end) {
+            var url = 'https://router.project-osrm.org/route/v1/driving/' + 
+                      start.lng + ',' + start.lat + ';' + end.lng + ',' + end.lat + 
+                      '?overview=full&geometries=geojson';
+            
+            try {
+                var resp = await fetch(url);
+                var data = await resp.json();
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    var r = data.routes[0];
+                    return {
+                        success: true,
+                        distanceKm: r.distance / 1000,
+                        durationMin: Math.round(r.duration / 60),
+                        geometry: r.geometry
+                    };
+                }
+                return { success: false };
+            } catch(e) {
+                console.log('API error:', e);
+                return { success: false };
+            }
+        }
+        
+        // Gambar rute jalan
+        function drawRoute(geojson) {
+            if (currentRoute) map.removeLayer(currentRoute);
+            currentRoute = L.geoJSON(geojson, {
+                style: { color: '#3b82f6', weight: 5, opacity: 0.8 }
+            }).addTo(map);
+        }
+        
+        // Gambar garis lurus (fallback)
+        function drawStraightLine(p1, p2) {
+            if (currentRoute) map.removeLayer(currentRoute);
+            currentRoute = L.polyline([p1, p2], {
+                color: '#f59e0b',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: '8, 8'
+            }).addTo(map);
+        }
+        
+        // Update tampilan hasil
+        function updateResult(start, end, distanceKm, method) {
+            var resultDiv = document.getElementById('resultContent');
+            var waktu = formatTime(distanceKm);
+            var jarak = formatDistance(distanceKm);
+            var transport = getTransportSuggestion(distanceKm);
+            
+            var methodText = (method === 'api') ? 'Rute jalan (OSRM)' : 'Garis lurus (Haversine)';
+            
+            resultDiv.innerHTML = `
+                <div class="distance-box"> Jarak: ${jarak}</div>
+                <div class="time-box"> Estimasi: ${waktu}</div>
+                <div class="status">${methodText}<br> Rekomendasi: ${transport}</div>
+            `;
+            
+            var pointsDiv = document.getElementById('pointsList');
+            pointsDiv.innerHTML = `
+                <div class="point-item start">
+                    <div class="point-label start">TITIK AWAL</div>
+                    <div class="point-coord">${start.lat.toFixed(5)}°, ${start.lng.toFixed(5)}°</div>
+                </div>
+                <div class="point-item end">
+                    <div class="point-label end">TITIK AKHIR</div>
+                    <div class="point-coord">${end.lat.toFixed(5)}°, ${end.lng.toFixed(5)}°</div>
+                </div>
+            `;
+        }
+        
+        function resetUI() {
+            document.getElementById('resultContent').innerHTML = '<div class="status">Klik dua titik pada peta</div>';
+            document.getElementById('pointsList').innerHTML = '<div class="empty-point">Belum ada titik. Klik peta untuk mulai</div>';
+        }
+        
+        // Hitung rute utama
+        async function calculate() {
+            if (waypoints.length < 2) return;
+            
+            var start = waypoints[0];
+            var end = waypoints[1];
+            
+            document.getElementById('resultContent').innerHTML = '<div class="status"><div class="loading"></div> Menghitung rute...</div>';
+            
+            var api = await getRoute(start, end);
+            
+            if (api.success) {
+                updateResult(start, end, api.distanceKm, 'api');
+                drawRoute(api.geometry);
+                map.fitBounds(currentRoute.getBounds());
+            } else {
+                var straight = haversineDistance(start.lat, start.lng, end.lat, end.lng);
+                updateResult(start, end, straight, 'haversine');
+                drawStraightLine(start, end);
+                map.fitBounds(currentRoute.getBounds());
+            }
+            
+            if (markers[0]) markers[0].bindPopup('Titik Awal: ' + start.lat.toFixed(5) + ', ' + start.lng.toFixed(5)).openPopup();
+            if (markers[1]) markers[1].bindPopup('Titik Akhir: ' + end.lat.toFixed(5) + ', ' + end.lng.toFixed(5)).openPopup();
+        }
+        
+        // Reset semua
+        function resetAll() {
+            markers.forEach(function(m) { map.removeLayer(m); });
+            markers = [];
+            waypoints = [];
+            if (currentRoute) map.removeLayer(currentRoute);
+            currentRoute = null;
+            resetUI();
+            map.setView(defaultCenter, 13);
+        }
+        
+        // Tambah titik
+        async function addPoint(latlng) {
+            if (waypoints.length >= 2) {
+                resetAll();
+            }
+            
+            var markerColor = (waypoints.length === 0) ? '#3b82f6' : '#ef4444';
+            var markerIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="background-color:' + markerColor + '; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>',
+                iconSize: [16, 16],
+                popupAnchor: [0, -8]
+            });
+            
+            var marker = L.marker(latlng, { draggable: true, icon: markerIcon }).addTo(map);
+            
+            marker.on('dragend', async function() {
+                var newPos = marker.getLatLng();
+                var idx = markers.indexOf(marker);
+                if (idx !== -1) waypoints[idx] = newPos;
+                if (waypoints.length === 2) await calculate();
+            });
+            
+            markers.push(marker);
+            waypoints.push(latlng);
+            
+            if (waypoints.length === 2) {
+                await calculate();
+            } else {
+                document.getElementById('pointsList').innerHTML = `
+                    <div class="point-item start">
+                        <div class="point-label start">TITIK AWAL</div>
+                        <div class="point-coord">${latlng.lat.toFixed(5)}°, ${latlng.lng.toFixed(5)}°</div>
+                    </div>
+                    <div class="empty-point">Klik titik kedua (tujuan)</div>
+                `;
+                document.getElementById('resultContent').innerHTML = '<div class="status">Klik titik kedua sebagai tujuan</div>';
+                marker.bindPopup('Titik Awal - Klik peta untuk menentukan tujuan').openPopup();
+            }
+        }
+        
+        // Contoh titik (Monas ke Grand Indonesia)
+        function addExample() {
+            resetAll();
+            var p1 = L.latLng(-6.1754, 106.8272);
+            var p2 = L.latLng(-6.1970, 106.8228);
+            addPoint(p1);
+            setTimeout(function() { addPoint(p2); }, 200);
+        }
+        
+        /* UPDATE: Screenshot peta - FITUR BARU */
+        function takeScreenshot() {
+            var mapContainer = document.getElementById('map');
+            html2canvas(mapContainer, { scale: 2, backgroundColor: '#e2e8f0' })
+                .then(function(canvas) {
+                    var link = document.createElement('a');
+                    var timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+                    link.download = 'peta_jakarta_' + timestamp + '.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                    alert('Screenshot berhasil disimpan');
+                })
+                .catch(function(err) {
+                    console.error('Screenshot error:', err);
+                    alert('Gagal mengambil screenshot');
+                });
+        }
+        
+        /* UPDATE: Update kecepatan - FITUR BARU */
+        function updateSpeedDisplay() {
+            var speedSlider = document.getElementById('speedSlider');
+            var speedValue = document.getElementById('speedValue');
+            currentSpeed = parseInt(speedSlider.value);
+            
+            var speedDesc = '';
+            if (currentSpeed <= 20) speedDesc = 'lambat (macet/jalan padat)';
+            else if (currentSpeed <= 40) speedDesc = 'sedang (kecepatan dalam kota)';
+            else if (currentSpeed <= 60) speedDesc = 'cepat (jalan tol)';
+            else speedDesc = 'sangat cepat (luar kota)';
+            
+            speedValue.innerHTML = currentSpeed + ' km/jam - ' + speedDesc;
+            
+            if (waypoints.length === 2) {
+                calculate();
+            }
+        }
+        
+        /* UPDATE: Tampilkan koordinat kursor - FITUR BARU */
+        function updateCursorCoords(e) {
+            var lat = e.latlng.lat.toFixed(5);
+            var lng = e.latlng.lng.toFixed(5);
+            document.getElementById('cursorCoords').innerHTML = lat + '°, ' + lng + '°';
+        }
+        
+        /* UPDATE: Tampilkan pilihan layer di panel - FITUR BARU */
+        function populateLayerList() {
+            var layerDiv = document.getElementById('layerList');
+            var layers = [
+                { name: 'OpenStreetMap', color: '#3b82f6', layer: baseMaps['OpenStreetMap'] },
+                { name: 'Satelit', color: '#10b981', layer: baseMaps['Satelit'] },
+                { name: 'Gelap', color: '#475569', layer: baseMaps['Gelap'] },
+            ];
+            
+            var html = '';
+            for (var i = 0; i < layers.length; i++) {
+                var l = layers[i];
+                var isActive = (activeLayer === l.layer);
+                html += '<div class="layer-item" data-layer="' + l.name + '">';
+                html += '<div class="layer-color" style="background: ' + l.color + '"></div>';
+                html += '<div class="layer-name">' + l.name + '</div>';
+                html += '<div class="layer-check">' + (isActive ? '✓' : '') + '</div>';
+                html += '</div>';
+            }
+            layerDiv.innerHTML = html;
+            
+            var items = document.querySelectorAll('.layer-item');
+            for (var i = 0; i < items.length; i++) {
+                items[i].addEventListener('click', function() {
+                    var layerName = this.getAttribute('data-layer');
+                    var selected = null;
+                    for (var j = 0; j < layers.length; j++) {
+                        if (layers[j].name === layerName) {
+                            selected = layers[j];
+                            break;
+                        }
+                    }
+                    if (selected) {
+                        map.removeLayer(activeLayer);
+                        activeLayer = selected.layer;
+                        activeLayer.addTo(map);
+                        populateLayerList();
+                    }
+                });
+            }
+        }
+        
+        /* UPDATE: Legenda peta - FITUR BARU */
+        var legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function() {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.style.backgroundColor = 'white';
+            div.style.padding = '10px';
+            div.style.borderRadius = '8px';
+            div.style.fontSize = '11px';
+            div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.1)';
+            div.innerHTML = '<div><strong>LEGENDA</strong></div>' +
+                '<div><span style="background:#3b82f6; width:12px; height:12px; display:inline-block; border-radius:50%;"></span> Titik awal</div>' +
+                '<div><span style="background:#ef4444; width:12px; height:12px; display:inline-block; border-radius:50%;"></span> Titik akhir</div>' +
+                '<div><span style="background:#3b82f6; width:20px; height:3px; display:inline-block;"></span> Rute jalan</div>' +
+                '<div><span style="background:#f59e0b; width:20px; height:3px; display:inline-block;"></span> Garis lurus</div>';
+            return div;
+        };
+        legend.addTo(map);
+        
+        // -------------------- EVENT LISTENER --------------------
+        map.on('click', function(e) {
+            addPoint(e.latlng);
+        });
+        
+        map.on('mousemove', updateCursorCoords);
+        
+        var speedSlider = document.getElementById('speedSlider');
+        if (speedSlider) {
+            speedSlider.addEventListener('input', updateSpeedDisplay);
+            updateSpeedDisplay();
+        }
+        
+        document.getElementById('resetBtn').onclick = resetAll;
+        document.getElementById('exampleBtn').onclick = addExample;
+        
+        var screenshotBtn = document.getElementById('screenshotBtn');
+        if (screenshotBtn) {
+            screenshotBtn.onclick = function() {
+                if (typeof html2canvas === 'undefined') {
+                    var script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                    script.onload = function() { takeScreenshot(); };
+                    document.head.appendChild(script);
+                } else {
+                    takeScreenshot();
+                }
+            };
+        }
+        
+        populateLayerList();
+        
+        // Tampilkan contoh titik saat pertama kali dibuka
+        setTimeout(function() {
+            addExample();
+        }, 500);
+        
+        console.log('Peta siap. Klik dua titik untuk menghitung jarak dan waktu.');
+        
+    });
+</script>
+
+<!-- UPDATE: html2canvas untuk fitur screenshot - FITUR BARU -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+</body>
+</html>
